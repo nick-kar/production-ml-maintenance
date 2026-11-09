@@ -5,6 +5,7 @@ import subprocess
 import time
 import uuid
 import httpx
+from contextlib import closing
 
 suffix = uuid.uuid4().hex[:10]
 name = "maintenance-check-" + suffix
@@ -47,7 +48,7 @@ def remove():
     docker("rm", "-f", name)
 
 try:
-    with start() as client:
+    with closing(start()) as client:
         original = prediction(client, "v1")
         response = client.post("/predict", json={**payload,"rpm":-1})
         assert response.status_code == 422
@@ -60,7 +61,7 @@ try:
         assert client.get("/health").json()["model_version"] == "v1"
     report["checks"].append("v1 prediction, validation, HTTP monitoring, explicit restart semantics")
     remove()
-    with start() as client:
+    with closing(start()) as client:
         metrics = client.get("/metrics").json()
         assert metrics["successful_predictions"] == 1, metrics
         assert metrics["http_4xx"] == 1, metrics
@@ -68,7 +69,7 @@ try:
         docker("exec", name, "python", "-m", "mlops.cli", "promote", "v1")
     report["checks"].append("volume persistence after container replacement; v2 release")
     remove()
-    with start() as client:
+    with closing(start()) as client:
         assert client.get("/metrics").json()["successful_predictions"] == 2
         restored = prediction(client, "v1")
         assert abs(restored-original) < 1e-12
