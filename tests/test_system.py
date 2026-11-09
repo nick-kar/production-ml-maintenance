@@ -53,6 +53,29 @@ class SystemTests(unittest.TestCase):
             with self.assertRaises(sqlite3.ProgrammingError):
                 connection.execute("SELECT 1")
 
+    def test_http_metrics_include_invalid_inputs_and_survive_restart(self):
+        with TestClient(app) as client:
+            client.post("/predict", json=dict(zip(core.FEATURES,[75,3,1500,110])))
+            client.post("/predict", json=dict(zip(core.FEATURES,[75,3,-1,110])))
+            client.get("/missing")
+            metrics = client.get("/metrics").json()
+            self.assertEqual(metrics["http_requests"], 3)
+            self.assertEqual(metrics["http_4xx"], 2)
+            self.assertEqual(metrics["http_5xx"], 0)
+            self.assertGreater(metrics["mean_server_request_ms"], 0)
+        with TestClient(app) as client:
+            self.assertEqual(client.get("/metrics").json()["http_requests"], 3)
+
+    def test_server_error_is_counted(self):
+        from unittest.mock import patch
+        with TestClient(app, raise_server_exceptions=False) as client:
+            with patch.object(app.state.model, "predict_proba", side_effect=RuntimeError("injected failure")):
+                response = client.post("/predict", json=dict(zip(core.FEATURES,[75,3,1500,110])))
+                self.assertEqual(response.status_code, 500)
+            metrics = client.get("/metrics").json()
+            self.assertEqual(metrics["http_5xx"], 1)
+            self.assertEqual(metrics["successful_predictions"], 0)
+
     def test_reproducible_training_and_immutable_versions(self):
         m=core.train("repeat")
         import json

@@ -85,3 +85,9 @@ and container smoke tests.
 
 Personal production-oriented portfolio project using synthetic data.
 Hosted deployment is not yet completed.
+
+## Final operations update
+
+Implementation added: persistent HTTP request/error counters and server processing latency; regression tests for invalid requests, server errors and counter persistence; automated container replacement, named-volume persistence, v2 release and v1 rollback verification. These additions do not change training or the recorded model results above.
+
+Local verification of the update: seven tests passed in the assistant's Linux environment. Windows execution and the updated GitHub Actions container-lifecycle run are pending until this patch is applied and pushed. The prior green CI run remains valid evidence for the earlier container smoke test only. The updated workflow writes container-check.json as a downloadable Actions artifact; passed=true is the completion criterion for the lifecycle checks. No hosted endpoint has been deployed.
