@@ -3,17 +3,21 @@
 - Date / Python version / OS:
   9 November 2026 / Python 3.12.10 / Windows 11.
 
-- Five local tests passed:
-  Ran 5 tests in 0.791s — OK.
-  Verified connection cleanup, predictions and validation, persistent
-  logging, drift detection, reproducible training, and version rollback.
+- Local integration tests:
+  All seven tests passed on Windows:
+  Ran 7 tests in 1.821s — OK.
+  Covered database connection cleanup, prediction consistency,
+  input validation, persistent logging, drift detection,
+  HTTP request/error monitoring, reproducible training,
+  model version switching and rollback.
 
 - v1 held-out metrics and prevalence:
   Average precision: 0.447604.
   ROC AUC: 0.832750.
   Positive prevalence: 12.2%.
   At threshold 0.30: TN=1235, FP=82, FN=108, TP=75.
-  Results use synthetic data; they do not establish real machinery performance.
+  Results use synthetic data and do not establish performance
+  on real machinery.
 
 - Example prediction and model version:
   Input: temperature_c=75, vibration_mm_s=3, rpm=1500,
@@ -26,68 +30,79 @@
   rpm=-1 returned HTTP 422.
   Message: Input should be greater than or equal to 100.
 
-- Normal / shifted traffic monitoring results:
+- Normal / shifted traffic monitoring:
   After normal traffic: 151 successful predictions; drift_alert=false.
-  After adding 150 shifted requests: 301 successful predictions.
+  After 150 additional shifted requests: 301 successful predictions.
   Vibration mean shift: 1.440978 reference standard deviations.
   drift_alert=true.
-  This detects feature distribution changes, not measured accuracy loss.
+  Feature drift does not establish a decrease in prediction accuracy.
 
-- v2 versus v1 comparison and release decision:
+- HTTP monitoring:
+  Persistent request counts, HTTP 4xx/5xx counts, and mean server
+  processing time.
+  Metrics requests are excluded from HTTP counters.
+  Server processing time excludes network transfer and is distinct
+  from model inference time.
+
+- v2 versus v1 comparison:
   v1 used C=1.0; v2 used C=0.5.
-  Both used seed 42, the same dataset, split, and threshold.
-  v2 average precision: 0.447584; ROC AUC: 0.832746.
+  Both used seed 42, the same dataset, split and threshold.
+  v2 average precision: 0.447584.
+  v2 ROC AUC: 0.832746.
   v2 confusion matrix: TN=1236, FP=81, FN=108, TP=75.
   No meaningful improvement established.
-  Switched to v2 for release practice, then restored v1.
+  v2 was used for release practice, then v1 was restored.
 
-- Rollback verification:
+- Local rollback verification:
   Promoted v1 and restarted the API.
-  A prediction returned HTTP 200 with model_version=v1 and reproduced
-  the original failure probability without retraining.
+  A prediction returned HTTP 200 with model_version=v1 and
+  reproduced the original probability without retraining.
 
 - GitHub repository:
   https://github.com/nick-kar/production-ml-maintenance
 
-- GitHub Actions successful run:
-  ML service checks #2, commit a96016d.
+- Final successful GitHub Actions run:
+  ML service checks #5, commit fcc9504.
   https://github.com/nick-kar/production-ml-maintenance/actions
-  Integration tests, image build, and container smoke test passed.
+  Passed integration tests, Docker image build, and automated
+  container persistence, release and rollback verification.
 
-- Docker build/run result:
-  Docker image built and container ran successfully on GitHub Actions.
-  Verified /health, a v1 prediction, and successful prediction logging.
+- Container lifecycle verification:
+  Served a valid v1 prediction and rejected invalid input.
+  Preserved prediction logs and HTTP counters in named Docker volumes
+  across container replacement.
+  Loaded v2 after container replacement.
+  Rolled back to v1 and reproduced the original prediction.
+  The workflow preserves a container-verification artifact.
+
+- Docker execution environment:
+  Docker built and ran containers on GitHub Actions.
   Docker was not run locally on Windows.
 
-- Hosted URL / hosting date / persistence test:
-  Not deployed as a continuously available hosted service.
-  Persistence across container replacement has not yet been verified.
+- Hosted deployment:
+  No continuously available public endpoint was deployed.
+  Persistence was verified using Docker volumes in CI,
+  not through a hosted service.
 
-- One issue diagnosed and fixed:
-  Initial Windows tests failed during temporary database cleanup because
-  SQLite connections remained open.
-  Applied an assisted fix using explicit connection closing in the API
-  and monitoring code.
-  Verified all five tests passed on Windows, including the added
-  connection-cleanup regression test.
+- Issues diagnosed and fixed with assistance:
+  Explicitly closed SQLite connections to resolve Windows temporary
+  database cleanup failures.
+  Corrected HTTP client lifecycle handling in the container-check
+  script after a failed CI run.
+  The final workflow passed after the fixes.
 
-- One change I implemented and why:
-  Updated the GitHub Actions workflow with assistance to start the Docker
-  container and verify health, predictions, and logging.
-  This checks that the built image runs successfully, beyond build success.
+- Implementation and verification:
+  Extended the workflow with assistance to verify running containers,
+  persistent storage, model releases and rollback.
+  Personally executed the Windows workflow, inspected API responses,
+  tested drift and rollback, committed changes and reviewed CI results.
 
-## CV wording after verification
+## CV wording
 
-Built and verified a containerized ML prediction service with FastAPI,
-input validation, SQLite prediction logging, feature-drift monitoring,
-model version promotion and rollback, and GitHub Actions integration
-and container smoke tests.
+Built and verified a containerized ML inference service with FastAPI,
+input validation, SQLite audit logging, HTTP error/latency monitoring,
+feature-drift checks and model version rollback; automated integration
+and container persistence/release tests using GitHub Actions.
 
-Personal production-oriented portfolio project using synthetic data.
-Hosted deployment is not yet completed.
-
-## Final operations update
-
-Implementation added: persistent HTTP request/error counters and server processing latency; regression tests for invalid requests, server errors and counter persistence; automated container replacement, named-volume persistence, v2 release and v1 rollback verification. These additions do not change training or the recorded model results above.
-
-Local verification of the update: seven tests passed in the assistant's Linux environment. Windows execution and the updated GitHub Actions container-lifecycle run are pending until this patch is applied and pushed. The prior green CI run remains valid evidence for the earlier container smoke test only. The updated workflow writes container-check.json as a downloadable Actions artifact; passed=true is the completion criterion for the lifecycle checks. No hosted endpoint has been deployed.
+Personal production-oriented portfolio project using synthetic data
+and simulated traffic.
